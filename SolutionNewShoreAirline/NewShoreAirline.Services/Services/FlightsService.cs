@@ -127,6 +127,38 @@ namespace NewShoreAirline.Services.Services
                 if (string.IsNullOrEmpty(search.Destination))
                     throw new Exception("Verify Destination");
 
+                string rpta =
+                   this.IJourneysDac.SearchJourney("ORIGIN",
+                   search.Origin, out DataTable dtJourney);
+
+                if (dtJourney != null)
+                {
+                    List<Journeys> journeysOrigin = new();
+                    journeysOrigin = (from DataRow row in dtJourney.Rows
+                                      select new Journeys(row)).ToList();
+
+                    Journeys journeyDefault =
+                    journeysOrigin.Where(x => x.Destination == search.Destination).FirstOrDefault();
+
+                    if (journeyDefault != null)
+                    {
+                        rpta =
+                          this.IJourneysDac.SearchJourney("FLIGHTS JOURNEY",
+                          journeyDefault.Id_journey.ToString(), out dtJourney);
+
+                        if (dtJourney != null)
+                        {
+                            List<Flights> flightsJourney = (from DataRow row in dtJourney.Rows
+                                                            select new Flights(row)).ToList();
+
+                            journeyDefault.Flights = flightsJourney;
+                            response.IsSucess = true;
+                            response.Response = JsonConvert.SerializeObject(new { Journey = journeyDefault });
+                            return response;
+                        }
+                    }
+                }
+
                 Journeys journey = new()
                 {
                     Origin = search.Origin,
@@ -135,7 +167,7 @@ namespace NewShoreAirline.Services.Services
                 };
 
                 //Búsqueda del primer Origen
-                string rpta =
+                rpta =
                     this.IFlightsDac.SearchFlight("ORIGIN",
                     search.Origin, out DataTable dtFlightsOrigin);
 
@@ -187,7 +219,7 @@ namespace NewShoreAirline.Services.Services
                     journey.Flights.Add(flightDefault);
                     journey.Price = journey.Flights.Sum(x => x.Price);
                 }
-                       
+
                 response.IsSucess = true;
                 response.Response = JsonConvert.SerializeObject(new { Journey = journey });
             }
@@ -208,7 +240,7 @@ namespace NewShoreAirline.Services.Services
                 if (!rpta.Equals("OK"))
                     throw new Exception("Error save the journey");
 
-                foreach(Flights fl in journey.Flights)
+                foreach (Flights fl in journey.Flights)
                 {
                     rpta = this.IFlightsDac.InsertFlight(fl);
 
