@@ -115,7 +115,7 @@ namespace NewShoreAirline.DataAccess.Dacs
                     if (!string.IsNullOrEmpty(this.Error_message))
                         rpta = this.Error_message;
                 //Obtenemos el id y lo asignamos a la propiedad existente para usarlo después
-                flight.Id_flight = Convert.ToInt32(SqlCmd.Parameters["Id_flight"].Value);
+                flight.Id_flight = Convert.ToInt32(SqlCmd.Parameters["@Id_flight"].Value);
             }
             catch (Exception ex)
             {
@@ -287,6 +287,72 @@ namespace NewShoreAirline.DataAccess.Dacs
             {
                 rpta = ex.Message;
                 dtFlight = null;
+            }
+            finally
+            {
+                if (SqlCon.State == ConnectionState.Open)
+                    SqlCon.Close();
+            }
+            return rpta;
+        }
+        #endregion
+
+        #region METHOD INSERT DETAIL FLIGHT
+        public string InsertDetailFlight(Details_journeys detail)
+        {
+            //Inicializamos la respuesta que vamos a devolver
+            string rpta = "OK";
+            SqlConnection SqlCon = new();
+            try
+            {
+                //Asignamos un evento SqlInfoMessage para obtener errores con severidad < 10 y > 11 desde SQL
+                SqlCon.InfoMessage += new SqlInfoMessageEventHandler(SqlCon_InfoMessage);
+                SqlCon.FireInfoMessageEventOnUserErrors = true;
+                //Asignamos la cadena de conexión desde un método estático que lee el archivo de configuracion
+                SqlCon.ConnectionString = Conexion.Cn();
+                //Abrimos la conexión.
+                SqlCon.Open();
+                //Creamos un comando para ejecutar un procedimiento almacenado
+                SqlCommand SqlCmd = new()
+                {
+                    Connection = SqlCon,
+                    CommandText = "sp_Details_journeys_i",
+                    CommandType = CommandType.StoredProcedure
+                };
+                //Creamos cada parámetro y lo agregamos a la lista de parámetros del comando
+                //El primer comando es el id del usuario que es parámetro de salida
+                SqlParameter Id_flight = new()
+                {
+                    ParameterName = "@Id_flight",
+                    SqlDbType = SqlDbType.Int,
+                    Value = detail.Id_flight,
+                };
+                SqlCmd.Parameters.Add(Id_flight);
+
+                #region PARÁMETROS
+
+                SqlParameter Id_journey = new()
+                {
+                    ParameterName = "@Id_journey",
+                    SqlDbType = SqlDbType.Int,
+                    Value = detail.Id_journey,
+                };
+                SqlCmd.Parameters.Add(Id_journey);
+               
+                #endregion
+
+                //Ejecutamos nuestro comando cuando agreguemos todos los parámetros requeridos
+                rpta = SqlCmd.ExecuteNonQuery() > 0 ? "OK" : "ERROR";
+
+                //Comprobamos la variable de respuesta Mensaje_error que guarda el mensaje específico
+                //De cualquier error generado en SQL procedimiento almacenado
+                if (!rpta.Equals("OK"))
+                    if (!string.IsNullOrEmpty(this.Error_message))
+                        rpta = this.Error_message;
+            }
+            catch (Exception ex)
+            {
+                rpta = ex.Message;
             }
             finally
             {

@@ -1,5 +1,5 @@
 ﻿using NewShoreAirline.DataAccess.Interfaces;
-using NewShoreAirline.Entidades.ModelosConfiguracion;
+using NewShoreAirline.Entities.ModelsConfiguration;
 using Microsoft.Extensions.Configuration;
 
 namespace NewShoreAirline.DataAccess.Dacs

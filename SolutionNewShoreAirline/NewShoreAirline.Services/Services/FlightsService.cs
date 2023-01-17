@@ -1,18 +1,26 @@
 ﻿using NewShoreAirline.DataAccess.Interfaces;
 using NewShoreAirline.Entities.Models;
 using NewShoreAirline.Entities.ModelsConfiguration;
+using NewShoreAirline.Services.Interfaces;
 using Newtonsoft.Json;
 using System.Data;
 
 namespace NewShoreAirline.Services.Services
 {
-    public class FlightsService
+    public class FlightsService : IFlightService
     {
+        #region CONSTRUCTOR AND DEPENDENCY INYECTION
         public IFlightsDac IFlightsDac { get; set; }
-        public FlightsService(IFlightsDac IFlightsDac)
+        public IJourneysDac IJourneysDac { get; set; }
+        public FlightsService(IFlightsDac IFlightsDac,
+            IJourneysDac IJourneysDac)
         {
             this.IFlightsDac = IFlightsDac;
+            this.IJourneysDac = IJourneysDac;
         }
+        #endregion
+
+        #region MÉTODOS
         private static bool ValidationInsert(Flights flight, out string rpta)
         {
             rpta = "OK";
@@ -119,6 +127,13 @@ namespace NewShoreAirline.Services.Services
                 if (string.IsNullOrEmpty(search.Destination))
                     throw new Exception("Verify Destination");
 
+                Journeys journey = new()
+                {
+                    Origin = search.Origin,
+                    Destination = search.Destination,
+                    Flights = new()
+                };
+
                 //Búsqueda del primer Origen
                 string rpta =
                     this.IFlightsDac.SearchFlight("ORIGIN",
@@ -127,33 +142,54 @@ namespace NewShoreAirline.Services.Services
                 List<Flights> flightsOrigin = new();
 
                 if (dtFlightsOrigin == null)
-                    throw new Exception($"Not origin Flights Origin | {rpta}");
+                    throw new Exception($"Not Flights Origin | {rpta}");
 
                 flightsOrigin = (from DataRow row in dtFlightsOrigin.Rows
-                           select new Flights(row)).ToList();
-
-                //Búsqueda del destino
-                rpta =
-                   this.IFlightsDac.SearchFlight("DESTINATION",
-                   search.Origin, out DataTable dtFlightsDestination);
-
-                List<Flights> flightsDestination = new();
-
-                if (dtFlightsDestination == null)
-                    throw new Exception($"Not origin Flights Destination | {rpta}");
-
-                flightsDestination = (from DataRow row in dtFlightsOrigin.Rows
                                  select new Flights(row)).ToList();
 
-                foreach(Flights flight in flightsDestination)
+                //Encontrar el vuelo con el destino correspondiente
+                Flights flightDefault =
+                    flightsOrigin.Where(x => x.Destination == search.Destination).FirstOrDefault();
+
+                //Si el vuelo no existe vamos a calcular uno nuevo
+                if (flightDefault == null)
                 {
+                    foreach (Flights fl in flightsOrigin)
+                    {
+                        rpta =
+                          this.IFlightsDac.SearchFlight("ORIGIN",
+                          fl.Destination, out DataTable dtFlightsDestination);
 
+                        if (dtFlightsDestination == null)
+                            continue;
+
+                        List<Flights> flightsDestination = new();
+
+                        flightsDestination = (from DataRow row in dtFlightsDestination.Rows
+                                              select new Flights(row)).ToList();
+
+                        Flights flightDefaultDestination =
+                            flightsDestination.Where(x => x.Destination == search.Destination).FirstOrDefault();
+
+                        if (flightDefaultDestination == null)
+                            continue;
+
+                        journey.Flights.Add(fl);
+                        journey.Flights.Add(flightDefaultDestination);
+                        break;
+                    }
+
+                    journey.Price = journey.Flights.Sum(x => x.Price);
+                    Task.Run(() => this.SaveJourneyAndFlights(journey));
                 }
-
-
-
+                else
+                {
+                    journey.Flights.Add(flightDefault);
+                    journey.Price = journey.Flights.Sum(x => x.Price);
+                }
+                       
                 response.IsSucess = true;
-                response.Response = JsonConvert.SerializeObject(flights);
+                response.Response = JsonConvert.SerializeObject(new { Journey = journey });
             }
             catch (Exception ex)
             {
@@ -162,5 +198,40 @@ namespace NewShoreAirline.Services.Services
             }
             return response;
         }
+
+        private void SaveJourneyAndFlights(Journeys journey)
+        {
+            try
+            {
+                string rpta = this.IJourneysDac.InsertJourney(journey);
+
+                if (!rpta.Equals("OK"))
+                    throw new Exception("Error save the journey");
+
+                foreach(Flights fl in journey.Flights)
+                {
+                    rpta = this.IFlightsDac.InsertFlight(fl);
+
+                    if (!rpta.Equals("OK"))
+                        throw new Exception("Error save the flight");
+
+                    Details_journeys detail = new()
+                    {
+                        Id_journey = journey.Id_journey,
+                        Id_flight = fl.Id_flight,
+                    };
+
+                    rpta = this.IFlightsDac.InsertDetailFlight(detail);
+                    if (!rpta.Equals("OK"))
+                        throw new Exception("Error save the detail flight");
+                }
+            }
+            catch (Exception)
+            {
+                //Manejar errores
+            }
+        }
+
+        #endregion
     }
 }

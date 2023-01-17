@@ -1,5 +1,7 @@
 ﻿using NewShoreAirline.Entities.ModelsConfiguration;
 using System.Data;
+using Newtonsoft.Json;
+
 
 namespace NewShoreAirline.Entities.Models
 {
@@ -21,17 +23,22 @@ namespace NewShoreAirline.Entities.Models
             this.Destination = ConvertValueHelper.ConvertStringValue(row["Destination"]);
             this.Price = ConvertValueHelper.ConvertDecimalValue(row["Price"]);
 
-            this.Transport = new();
+            if (row.Table.Columns.Contains("FlightCarrier"))
+                this.Transport = new(row);
+            else
+                this.Transport = new();
         }
         #endregion
 
         #region PROPERTIES
+        [JsonIgnore]
         public int Id_flight { get; set; }
+        [JsonIgnore]
         public int Id_transport { get; set; }
-        public Transports Transport { get; set; }
         public string Origin { get; set; }
         public string Destination { get; set; }
         public decimal Price { get; set; }
+        public Transports Transport { get; set; }
         #endregion
     }
 }

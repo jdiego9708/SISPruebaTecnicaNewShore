@@ -108,7 +108,7 @@ namespace NewShoreAirline.DataAccess.Dacs
                     if (!string.IsNullOrEmpty(this.Error_message))
                         rpta = this.Error_message;
                 //Obtenemos el id y lo asignamos a la propiedad existente para usarlo después
-                journey.Id_journey = Convert.ToInt32(SqlCmd.Parameters["Id_journey"].Value);
+                journey.Id_journey = Convert.ToInt32(SqlCmd.Parameters["@Id_journey"].Value);
             }
             catch (Exception ex)
             {

@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using NewShoreAirline.Entities.Models;
+using NewShoreAirline.Entities.ModelsConfiguration;
 
 namespace NewShoreAirline.Services.Interfaces
 {
-    internal interface IFlightService
+    public interface IFlightService
     {
+        RestResponseModel InsertFlight(Flights flight);
+        RestResponseModel SearchFlights(SearchBindingModel search);
+        RestResponseModel VerifyFlights(FlightsSearchBindingModel search);
     }
 }
